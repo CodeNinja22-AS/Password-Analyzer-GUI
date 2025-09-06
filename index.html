@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Strength Evaluator</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Import the Inter font for a clean, modern look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #50207A; /* Dark purple background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        /* Custom styles for the password input and toggle button */
+        .password-container {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #838CE5;
+        }
+
+        /* Styles for the strength meter bar */
+        .strength-meter-fill {
+            transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-[#50207A]">
+
+    <div class="bg-[#2D0F40] rounded-xl shadow-2xl p-6 md:p-10 w-full max-w-md border border-[#838CE5]">
+        <h1 class="text-3xl font-bold text-center text-[#D6B9FC] mb-6">Password Strength Evaluator</h1>
+        
+        <!-- Password Input Field -->
+        <div class="password-container mb-4">
+            <input type="password" id="password-input" placeholder="Enter your password..."
+                class="w-full px-4 py-3 border border-[#838CE5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D6B9FC] pr-12 text-[#D6B9FC] bg-[#3B155E]">
+            <span class="toggle-password" id="toggle-password">
+                <!-- Eye icon from heroicons -->
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.575 3.01 9.963 7.173a1.012 1.012 0 0 1 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.575-3.01-9.963-7.173Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+            </span>
+        </div>
+
+        <!-- Strength Meter -->
+        <div id="strength-meter-container" class="w-full h-2 bg-[#838CE5] rounded-full overflow-hidden mb-4">
+            <div id="strength-meter" class="h-full rounded-full strength-meter-fill" style="width: 0%;"></div>
+        </div>
+
+        <!-- Strength Text and Crack Time -->
+        <div class="flex justify-between items-center text-sm font-medium mb-4">
+            <span id="strength-text" class="text-[#D6B9FC]">Start typing...</span>
+            <div class="flex items-center">
+                <span class="text-[#D6B9FC]">Crack Time (GPU):</span>
+                <span id="crack-time-value" class="font-semibold text-white ml-1">N/A</span>
+            </div>
+        </div>
+        
+        <!-- Progressive Hints -->
+        <div id="hints-container" class="space-y-2 mb-6 text-sm text-[#D6B9FC]">
+            <p id="hint-length" class="text-[#D6B9FC]">
+                <span id="length-icon" class="inline-block w-4 h-4 mr-2"></span>
+                <span>Minimum 8 characters</span>
+            </p>
+            <p id="hint-uppercase" class="text-[#D6B9FC]">
+                <span id="uppercase-icon" class="inline-block w-4 h-4 mr-2"></span>
+                <span>At least one uppercase letter</span>
+            </p>
+            <p id="hint-lowercase" class="text-[#D6B9FC]">
+                <span id="lowercase-icon" class="inline-block w-4 h-4 mr-2"></span>
+                <span>At least one lowercase letter</span>
+            </p>
+            <p id="hint-number" class="text-[#D6B9FC]">
+                <span id="number-icon" class="inline-block w-4 h-4 mr-2"></span>
+                <span>At least one number</span>
+            </p>
+            <p id="hint-special" class="text-[#D6B9FC]">
+                <span id="special-icon" class="inline-block w-4 h-4 mr-2"></span>
+                <span>At least one special character</span>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript for the password strength evaluator
+        document.addEventListener('DOMContentLoaded', () => {
+            const passwordInput = document.getElementById('password-input');
+            const togglePasswordButton = document.getElementById('toggle-password');
+            const strengthMeter = document.getElementById('strength-meter');
+            const strengthText = document.getElementById('strength-text');
+            const crackTimeValue = document.getElementById('crack-time-value');
+
+            // Hint elements
+            const hints = {
+                length: { element: document.getElementById('hint-length'), icon: document.getElementById('length-icon') },
+                uppercase: { element: document.getElementById('hint-uppercase'), icon: document.getElementById('uppercase-icon') },
+                lowercase: { element: document.getElementById('hint-lowercase'), icon: document.getElementById('lowercase-icon') },
+                number: { element: document.getElementById('hint-number'), icon: document.getElementById('number-icon') },
+                special: { element: document.getElementById('hint-special'), icon: document.getElementById('special-icon') }
+            };
+
+            // Icon SVGs
+            const checkIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-full h-full text-[#D6B9FC]"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>`;
+            const xIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-full h-full text-[#838CE5]"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`;
+
+            // Password visibility toggle
+            togglePasswordButton.addEventListener('click', () => {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+            });
+
+            // Main event listener for password input
+            passwordInput.addEventListener('input', () => {
+                const password = passwordInput.value;
+                const stats = checkPasswordStrength(password);
+                updateUI(stats, password);
+            });
+
+            // The main function to evaluate password strength
+            function checkPasswordStrength(password) {
+                let stats = {
+                    length: password.length >= 8,
+                    uppercase: /[A-Z]/.test(password),
+                    lowercase: /[a-z]/.test(password),
+                    number: /[0-9]/.test(password),
+                    special: /[^A-Za-z0-9]/.test(password)
+                };
+
+                let charSetSize = 0;
+                if (stats.uppercase) charSetSize += 26;
+                if (stats.lowercase) charSetSize += 26;
+                if (stats.number) charSetSize += 10;
+                if (stats.special) charSetSize += 32;
+
+                const passwordLength = password.length;
+                let entropyBits = 0;
+                if (charSetSize > 0) {
+                    entropyBits = passwordLength * (Math.log(charSetSize) / Math.log(2));
+                }
+
+                stats.entropy = entropyBits;
+                return stats;
+            }
+
+            // Function to update the GUI based on password stats
+            function updateUI(stats, password) {
+                // Update hints with checkmark/x icons and color
+                hints.length.icon.innerHTML = stats.length ? checkIcon : xIcon;
+                hints.length.element.classList.toggle('text-[#D6B9FC]', stats.length);
+                hints.length.element.classList.toggle('text-[#838CE5]', !stats.length);
+                
+                hints.uppercase.icon.innerHTML = stats.uppercase ? checkIcon : xIcon;
+                hints.uppercase.element.classList.toggle('text-[#D6B9FC]', stats.uppercase);
+                hints.uppercase.element.classList.toggle('text-[#838CE5]', !stats.uppercase);
+
+                hints.lowercase.icon.innerHTML = stats.lowercase ? checkIcon : xIcon;
+                hints.lowercase.element.classList.toggle('text-[#D6B9FC]', stats.lowercase);
+                hints.lowercase.element.classList.toggle('text-[#838CE5]', !stats.lowercase);
+
+                hints.number.icon.innerHTML = stats.number ? checkIcon : xIcon;
+                hints.number.element.classList.toggle('text-[#D6B9FC]', stats.number);
+                hints.number.element.classList.toggle('text-[#838CE5]', !stats.number);
+
+                hints.special.icon.innerHTML = stats.special ? checkIcon : xIcon;
+                hints.special.element.classList.toggle('text-[#D6B9FC]', stats.special);
+                hints.special.element.classList.toggle('text-[#838CE5]', !stats.special);
+                
+                // Update strength meter
+                let meterWidth = 0;
+                let meterColor = 'bg-[#838CE5]';
+                let strengthMessage = 'Start typing...';
+
+                if (stats.entropy < 28) {
+                    meterWidth = (stats.entropy / 28) * 25;
+                    meterColor = 'bg-red-500';
+                    strengthMessage = 'Very Weak';
+                } else if (stats.entropy < 36) {
+                    meterWidth = ((stats.entropy - 28) / 8) * 25 + 25;
+                    meterColor = 'bg-orange-400';
+                    strengthMessage = 'Weak';
+                } else if (stats.entropy < 60) {
+                    meterWidth = ((stats.entropy - 36) / 24) * 25 + 50;
+                    meterColor = 'bg-yellow-400';
+                    strengthMessage = 'Reasonable';
+                } else if (stats.entropy < 128) {
+                    meterWidth = ((stats.entropy - 60) / 68) * 25 + 75;
+                    meterColor = 'bg-green-500';
+                    strengthMessage = 'Strong';
+                } else {
+                    meterWidth = 100;
+                    meterColor = 'bg-green-700';
+                    strengthMessage = 'Very Strong';
+                }
+
+                strengthMeter.style.width = `${meterWidth}%`;
+                strengthMeter.className = `h-full rounded-full strength-meter-fill ${meterColor}`;
+                
+                strengthText.textContent = password.length > 0 ? strengthMessage : 'Start typing...';
+                
+                // Update crack time
+                const fast_speed = 10**12;
+                if (stats.entropy > 0) {
+                    const crackTimeSeconds = (2**stats.entropy) / fast_speed;
+                    crackTimeValue.textContent = formatTime(crackTimeSeconds);
+                } else {
+                    crackTimeValue.textContent = 'N/A';
+                }
+            }
+
+            // Function to format time for display
+            function formatTime(seconds) {
+                if (seconds < 60) {
+                    return `${seconds.toFixed(2)} seconds`;
+                } else if (seconds < 3600) {
+                    return `${(seconds / 60).toFixed(2)} minutes`;
+                } else if (seconds < 86400) {
+                    return `${(seconds / 3600).toFixed(2)} hours`;
+                } else if (seconds < 31536000) {
+                    return `${(seconds / 86400).toFixed(2)} days`;
+                } else if (seconds < 31536000000) {
+                    return `${(seconds / 31536000).toFixed(2)} years`;
+                } else {
+                    return `> 1000 years`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
