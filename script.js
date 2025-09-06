@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const strengthMeter = document.getElementById('strength-meter');
     const strengthText = document.getElementById('strength-text');
     const crackTimeValue = document.getElementById('crack-time-value');
+    const clockElement = document.getElementById('clock');
 
     // Hint elements
     const hints = {
@@ -139,4 +140,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return `> 1000 years`;
         }
     }
+
+    // Clock functionality
+    function updateClock() {
+        const now = new Date();
+        const options = {
+            timeZone: 'Asia/Kolkata',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        };
+        const timeString = new Intl.DateTimeFormat('en-US', options).format(now);
+        clockElement.textContent = timeString;
+    }
+
+    updateClock(); // Initial call
+    setInterval(updateClock, 1000); // Update every second
 });
